@@ -7,14 +7,22 @@ MODEL_PATH = "/tmp/sam3.pt"
 MODEL_URL = "http://floridaapdata.org/sam3.pt"
 
 def download_model_if_needed():
-    """Checks if the 4GB SAM3 file is present; if not, downloads it from your host."""
+    """Checks if the 4GB SAM3 file is present; if not, downloads it, bypassing SSL redirects."""
     if not os.path.exists(MODEL_PATH):
         print(f"📥 SAM3 weights missing. Downloading from {MODEL_URL}...")
         
-        # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
         
-        # Download file with basic block reporting
+        # 2. Create the python equivalent to 'wget --no-check-certificate'
+        # This forces Python to ignore SSL errors when the server redirects to HTTPS
+        insecure_context = ssl._create_unverified_context()
+        
+        # 3. Build an opener that uses this insecure context and install it globally
+        handler = urllib.request.HTTPSHandler(context=insecure_context)
+        opener = urllib.request.build_opener(handler)
+        urllib.request.install_opener(opener)
+        
+        # 4. Perform the download
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("✅ Download complete!")
     else:
