@@ -43,12 +43,98 @@ overrides = dict(
 )
 predictor = SAM3SemanticPredictor(overrides=overrides)
 
+#import base64
+#import io
+#import cv2
+#import numpy as np
+#import requests
+
 import base64
-import io
 import cv2
 import numpy as np
 import requests
 
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
+    text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    
+    if not image_url:
+        return {"error": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode the raw image bytes for OpenCV annotation drawing
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        
+        # 2. Run inference using the pre-warmed SAM 3 / Ultralytics model
+        # Note: If your model requires loading an image array rather than a URL string, 
+        # you can pass 'image' directly instead: predictor.set_image(image)
+        predictor.set_image(image_url)
+        results = predictor(text=text_prompts)
+        
+        # 3. Parse real prediction tracking elements out of the model outputs object
+        detected_objects = []
+        
+        if results and results[0].boxes:
+            boxes = results[0].boxes
+            
+            # Loop over every item found by the model
+            for box in boxes:
+                # Extract coordinates as standard integers for OpenCV compatibility
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                
+                # Extract confidence score and class ID metadata
+                conf = float(box.conf[0].item()) if box.conf is not None else 1.0
+                class_id = int(box.cls[0].item()) if box.cls is not None else 0
+                
+                # Get the string label name (fallback to ID if names map is missing)
+                label_name = predictor.names.get(class_id, f"object_{class_id}")
+                
+                # Build the exact dictionary structure expected by your local client pipeline
+                detected_objects.append({
+                    "box": [x1, y1, x2, y2],
+                    "label": label_name,
+                    "conf": conf
+                })
+
+        # 4. Construct standard JSON text response payload
+        return_output = {
+            "status": "success",
+            "predictions": detected_objects,
+            "annotated_image_b64": None,
+            "message": f"Successfully processed {image_url}"
+        }
+
+        # 5. If requested, draw boxes onto the downloaded frame and encode to base64
+        if return_annotated_image and detected_objects:
+            for obj in detected_objects:
+                x1, y1, x2, y2 = obj["box"]
+                label = f"{obj['label']} {obj['conf']:.2f}"
+                
+                # Draw the bounding box rectangle (Green outline, thickness of 3 pixels)
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                
+                # Add text label above the rectangle boundary
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, (0, 255, 0), 2, cv2.LINE_AA)
+            
+            # Encode the modified image matrix back into a JPEG memory buffer
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                # Convert the byte buffer into a clean Base64 string for the JSON payload
+                b64_string = base64.b64encode(encoded_image).decode('utf-8')
+                return_output["annotated_image_b64"] = b64_string
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+'''
 def handler(job):
     job_input = job.get('input', {})
     image_path = job_input.get('image_path')
@@ -97,6 +183,7 @@ def handler(job):
             return_output["annotated_image_b64"] = b64_string
 
     return return_output
+'''
 
 '''
 def handler(job):
