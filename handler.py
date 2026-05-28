@@ -43,7 +43,62 @@ overrides = dict(
 )
 predictor = SAM3SemanticPredictor(overrides=overrides)
 
+import base64
+import io
+import cv2
+import numpy as np
+import requests
 
+def handler(job):
+    job_input = job.get('input', {})
+    image_path = job_input.get('image_path')
+    prompts = job_input.get('prompts', [])
+    
+    # New configuration flag (defaults to False if not passed)
+    return_annotated_image = job_input.get('return_annotated_image', False)
+
+    # 1. Fetch and decode the image from the WebCOOS S3 URL
+    response = requests.get(image_path)
+    image_bytes = np.frombuffer(response.content, np.uint8)
+    image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+    
+    # 2. RUN YOUR SAM 3 / ULTRALYTICS INFERENCE HERE
+    # Let's assume your model outputs a list of bounding boxes: [[x1, y1, x2, y2, label, confidence], ...]
+    # For demonstration, let's say 'detected_objects' holds your parsed results:
+    detected_objects = [
+        {"box": [100, 150, 400, 500], "label": "bus", "conf": 0.92},
+        {"box": [120, 200, 180, 300], "label": "person", "conf": 0.88}
+    ]
+
+    # 3. Standard text response data dictionary
+    return_output = {
+        "predictions": detected_objects,
+        "annotated_image_b64": None
+    }
+
+    # 4. If the user requested the visual image layout, draw the boxes
+    if return_annotated_image:
+        for obj in detected_objects:
+            x1, y1, x2, y2 = obj["box"]
+            label = f"{obj['label']} {obj['conf']:.2f}"
+            
+            # Draw the bounding box rectangle (Green: 0, 255, 0; Thickness: 3)
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
+            
+            # Add text label above the rectangle boundary
+            cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.6, (0, 255, 0), 2, cv2.LINE_AA)
+        
+        # Encode the modified image array matrix back into a JPEG memory buffer
+        success, encoded_image = cv2.imencode('.jpg', image)
+        if success:
+            # Convert memory buffer to a clean Base64 ASCII string layout
+            b64_string = base64.b64encode(encoded_image).decode('utf-8')
+            return_output["annotated_image_b64"] = b64_string
+
+    return return_output
+
+'''
 def handler(job):
     """The serverless API entry point called on every new camera image trigger."""
     job_input = job['input']
@@ -69,6 +124,7 @@ def handler(job):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+'''
 
 # Register with RunPod Serverless
 runpod.serverless.start({"handler": handler})
