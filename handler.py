@@ -1,4 +1,5 @@
 import os
+import ssl
 import urllib.request
 import runpod
 from ultralytics.models.sam import SAM3SemanticPredictor
