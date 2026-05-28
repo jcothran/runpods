@@ -1,15 +1,17 @@
-# Start with RunPod's official optimized PyTorch base image
-#FROM runpod/pytorch:2.1.2-py3.10-cuda11.8.0-devel-ubuntu22.04
 FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
-# Install Ultralytics and the RunPod Serverless SDK
+# 1. Install the essential Linux graphics rendering pipes OpenCV needs
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Install your python libraries
 RUN pip install --no-cache-dir ultralytics runpod
 
-# Set up our working directory inside the container
+# 3. Set up your app
 WORKDIR /app
-
-# Copy only your text scripts into the image
 COPY handler.py /app/handler.py
 
-# Tell the container to launch your handler script immediately on boot
+# 4. Run with unbuffered logging active
 CMD [ "python", "-u", "/app/handler.py" ]
