@@ -52,6 +52,185 @@ def handler(job):
     """The serverless API entry point called on every new camera image trigger."""
     job_input = job.get('input', {})
     image_url = job_input.get("image_path")
+    
+    # Optional Exemplar Input
+    exemplar_b64 = job_input.get("exemplar_image_b64", None)
+    
+    # Standard Text Fallbacks
+    text_prompts = job_input.get("prompts", ["water", "dock", "shoreline"])
+    
+    # Configuration Toggles
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    return_boxes = job_input.get('return_boxes', True)
+    return_polygons = job_input.get('return_polygons', False)
+
+    if not image_url:
+        return {"status": "error", "message": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode the main scene image
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        img_h, img_w = image.shape[:2]
+        
+        # 2. Setup tracking mode flags
+        exemplar_img = None
+        exemplar_mask = None
+        mode_label = "Text Prompt"
+
+        # Check if an image exemplar string was actually sent
+        if exemplar_b64 and exemplar_b64.strip():
+            try:
+                patch_bytes = base64.b64decode(exemplar_b64)
+                patch_arr = np.frombuffer(patch_bytes, np.uint8)
+                # IMREAD_UNCHANGED preserves the 4th Alpha Transparency Channel
+                exemplar_rgba = cv2.imdecode(patch_arr, cv2.IMREAD_UNCHANGED)
+                
+                if exemplar_rgba is not None:
+                    if exemplar_rgba.shape[2] == 4:
+                        # Extract BGR channels and use Alpha channel as the isolated binary mask
+                        exemplar_img = cv2.cvtColor(exemplar_rgba, cv2.COLOR_BGRA2BGR)
+                        alpha_channel = exemplar_rgba[:, :, 3]
+                        _, exemplar_mask = cv2.threshold(alpha_channel, 0, 1, cv2.THRESH_BINARY)
+                    else:
+                        # No alpha transparency channel found, use as a solid square crop
+                        exemplar_img = exemplar_rgba
+                    mode_label = "Visual Exemplar"
+            except Exception as b64_err:
+                print(f"⚠️ Failed parsing exemplar string, falling back to text prompts: {b64_err}")
+
+        # 3. Fire the pre-warmed SAM 3 engine based on active mode choice
+        predictor.set_image(image_url)
+        
+        if exemplar_img is not None:
+            # Concept Search Mode
+            results = predictor(exemplar=exemplar_img, exemplar_mask=exemplar_mask)
+        else:
+            # Standard Keyword Search Mode
+            results = predictor(text=text_prompts)
+        
+        # 4. Extract raw bounding box metrics
+        raw_boxes = []
+        confidences = []
+        class_ids = []
+        mask_indices = []
+        
+        if results and results[0].boxes:
+            for idx, box in enumerate(results[0].boxes):
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0].item()) if (hasattr(box, 'conf') and box.conf is not None) else 1.0
+                class_id = int(box.cls[0].item()) if (hasattr(box, 'cls') and box.cls is not None) else 0
+                
+                raw_boxes.append([x1, y1, x2 - x1, y2 - y1])  # [x, y, w, h]
+                confidences.append(conf)
+                class_ids.append(class_id)
+                mask_indices.append(idx)
+
+        # 5. Apply NMS to merge overlapping predictions
+        indices = []
+        if raw_boxes:
+            indices = cv2.dnn.NMSBoxes(bboxes=raw_boxes, scores=confidences, score_threshold=0.25, nms_threshold=0.45)
+        if len(indices) > 0:
+            indices = np.array(indices).flatten()
+
+        # 6. Build clean telemetry dictionary array
+        detected_objects = []
+        final_kept_indices = []
+        has_masks = hasattr(results[0], 'masks') and results[0].masks is not None
+
+        for i in indices:
+            x, y, w, h = raw_boxes[i]
+            x1, y1, x2, y2 = x, y, x + w, y + h
+            conf = confidences[i]
+            orig_idx = mask_indices[i]
+            
+            # Map clean string label based on execution mode
+            if exemplar_img is not None:
+                label_name = mode_label
+            else:
+                label_name = text_prompts[class_ids[i]] if class_ids[i] < len(text_prompts) else f"Object_{class_ids[i]}"
+            
+            pixel_area = 0
+            polygon_coords = []
+            
+            if has_masks:
+                binary_mask = results[0].masks.data[orig_idx].cpu().numpy().astype(np.uint8)
+                if binary_mask.shape[0] != img_h or binary_mask.shape[1] != img_w:
+                    binary_mask = cv2.resize(binary_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                
+                pixel_area = int(np.sum(binary_mask))
+                
+                if return_polygons:
+                    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if contours:
+                        largest_contour = max(contours, key=cv2.contourArea)
+                        polygon_coords = largest_contour.reshape(-1, 2).tolist()
+
+            item_data = {"label": label_name, "conf": conf, "pixel_area": pixel_area}
+            if return_boxes:
+                item_data["box"] = [x1, y1, x2, y2]
+            if return_polygons:
+                item_data["polygon"] = polygon_coords
+
+            detected_objects.append(item_data)
+            final_kept_indices.append(orig_idx)
+
+        return_output = {
+            "status": "success",
+            "pipeline_mode": mode_label,
+            "predictions": detected_objects,
+            "annotated_image_b64": None,
+            "message": f"Successfully processed image frame using {mode_label} mode."
+        }
+
+        # 7. Core OpenCV Drawing Layer
+        if return_annotated_image and detected_objects:
+            np.random.seed(42)
+            colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
+            
+            if has_masks:
+                for out_idx, orig_idx in enumerate(final_kept_indices):
+                    binary_mask = results[0].masks.data[orig_idx].cpu().numpy().astype(np.uint8)
+                    if binary_mask.shape[0] != img_h or binary_mask.shape[1] != img_w:
+                        binary_mask = cv2.resize(binary_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                    color = colors[out_idx % len(colors)].tolist()
+                    colored_mask = np.zeros_like(image, dtype=np.uint8)
+                    colored_mask[binary_mask == 1] = color
+                    cv2.addWeighted(image, 1.0, colored_mask, 0.4, 0, dst=image)
+
+            for out_idx, obj in enumerate(detected_objects):
+                if "box" in obj:
+                    x1, y1, x2, y2 = obj["box"]
+                else:
+                    idx_in_raw = final_kept_indices[out_idx]
+                    x, y, w, h = raw_boxes[idx_in_raw]
+                    x1, y1, x2, y2 = x, y, x + w, y + h
+
+                label = f"{obj['label']} ({obj['pixel_area']:,} px)"
+                color = colors[out_idx % len(colors)].tolist()
+                cv2.rectangle(image, (x1, y1), (x2, y2), color, 3)
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+            
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                return_output["annotated_image_b64"] = base64.b64encode(encoded_image).decode('utf-8')
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+'''
+import base64
+import cv2
+import numpy as np
+import requests
+
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
     text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
     
     # Payload Toggles
@@ -199,6 +378,7 @@ def handler(job):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+'''
         
 '''
 import base64
