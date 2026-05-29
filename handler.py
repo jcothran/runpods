@@ -43,7 +43,115 @@ overrides = dict(
 )
 predictor = SAM3SemanticPredictor(overrides=overrides)
 
+import base64
+import cv2
+import numpy as np
+import requests
 
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
+    text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    
+    if not image_url:
+        return {"error": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode raw image bytes
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        
+        # 2. Run inference using pre-warmed model
+        predictor.set_image(image_url)
+        results = predictor(text=text_prompts)
+        
+        raw_boxes = []
+        confidences = []
+        class_ids = []
+        
+        # 3. Harvest raw predictions
+        if results and results[0].boxes:
+            for box in results[0].boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0].item()) if (hasattr(box, 'conf') and box.conf is not None) else 1.0
+                class_id = int(box.cls[0].item()) if (hasattr(box, 'cls') and box.cls is not None) else 0
+                
+                # OpenCV NMS requires bounding boxes in [x, y, width, height] format
+                w = x2 - x1
+                h = y2 - y1
+                
+                raw_boxes.append([x1, y1, w, h])
+                confidences.append(conf)
+                class_ids.append(class_id)
+
+        # 4. Apply Non-Maximum Suppression (NMS) to eliminate overlaps
+        # iou_threshold=0.45: Boxes overlapping more than 45% with a higher-conf box are suppressed
+        # score_threshold=0.25: Discard detections lower than 25% confidence
+        indices = []
+        if raw_boxes:
+            indices = cv2.dnn.NMSBoxes(
+                bboxes=raw_boxes, 
+                scores=confidences, 
+                score_threshold=0.25, 
+                nms_threshold=0.45
+            )
+        
+        # Flatten indices array if necessary (handles differences across OpenCV versions)
+        if len(indices) > 0:
+            indices = np.array(indices).flatten()
+
+        # 5. Compile the final clean filtered object collection
+        detected_objects = []
+        for i in indices:
+            x, y, w, h = raw_boxes[i]
+            x1, y1, x2, y2 = x, y, x + w, y + h
+            class_id = class_ids[i]
+            conf = confidences[i]
+            
+            if class_id < len(text_prompts):
+                label_name = text_prompts[class_id]
+            else:
+                label_name = f"Object_{class_id}"
+                
+            detected_objects.append({
+                "box": [x1, y1, x2, y2],
+                "label": label_name,
+                "conf": conf
+            })
+
+        # 6. Construct response payload
+        return_output = {
+            "status": "success",
+            "predictions": detected_objects,
+            "detected_boxes": [obj["box"] for obj in detected_objects],
+            "annotated_image_b64": None,
+            "message": f"Successfully processed {image_url}"
+        }
+
+        # 7. Draw the clean, non-overlapping boxes if requested
+        if return_annotated_image and detected_objects:
+            for obj in detected_objects:
+                x1, y1, x2, y2 = obj["box"]
+                label = f"{obj['label']} {obj['conf']:.2f}"
+                
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, (0, 255, 0), 2, cv2.LINE_AA)
+            
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                b64_string = base64.b64encode(encoded_image).decode('utf-8')
+                return_output["annotated_image_b64"] = b64_string
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+'''
 import base64
 import cv2
 import numpy as np
@@ -124,6 +232,7 @@ def handler(job):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+'''
 
 #import base64
 #import io
