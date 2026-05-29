@@ -64,6 +64,152 @@ def handler(job):
         image_bytes = np.frombuffer(response.content, np.uint8)
         image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
         
+        # 2. Run inference using pre-warmed SAM 3 model
+        predictor.set_image(image_url)
+        results = predictor(text=text_prompts)
+        
+        raw_boxes = []
+        confidences = []
+        class_ids = []
+        mask_indices = []  # Keep track of which mask belongs to which box
+        
+        # 3. Harvest raw predictions (boxes and masks)
+        if results and results[0].boxes:
+            for idx, box in enumerate(results[0].boxes):
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0].item()) if (hasattr(box, 'conf') and box.conf is not None) else 1.0
+                class_id = int(box.cls[0].item()) if (hasattr(box, 'cls') and box.cls is not None) else 0
+                
+                w = x2 - x1
+                h = y2 - y1
+                
+                raw_boxes.append([x1, y1, w, h])
+                confidences.append(conf)
+                class_ids.append(class_id)
+                mask_indices.append(idx)
+
+        # 4. Apply Non-Maximum Suppression (NMS) to eliminate overlaps
+        indices = []
+        if raw_boxes:
+            indices = cv2.dnn.NMSBoxes(
+                bboxes=raw_boxes, 
+                scores=confidences, 
+                score_threshold=0.25, 
+                nms_threshold=0.45
+            )
+        
+        if len(indices) > 0:
+            indices = np.array(indices).flatten()
+
+        # 5. Compile the final clean filtered object collection
+        detected_objects = []
+        final_kept_indices = [] # Track the original indices that survived NMS for masks
+        
+        for i in indices:
+            x, y, w, h = raw_boxes[i]
+            x1, y1, x2, y2 = x, y, x + w, y + h
+            class_id = class_ids[i]
+            conf = confidences[i]
+            
+            if class_id < len(text_prompts):
+                label_name = text_prompts[class_id]
+            else:
+                label_name = f"Object_{class_id}"
+                
+            detected_objects.append({
+                "box": [x1, y1, x2, y2],
+                "label": label_name,
+                "conf": conf
+            })
+            final_kept_indices.append(mask_indices[i])
+
+        # 6. Construct response payload
+        return_output = {
+            "status": "success",
+            "predictions": detected_objects,
+            "detected_boxes": [obj["box"] for obj in detected_objects],
+            "annotated_image_b64": None,
+            "message": f"Successfully processed {image_url}"
+        }
+
+        # 7. Draw the clean masks and boxes if requested
+        if return_annotated_image and detected_objects:
+            # Generate distinct colors for different classes/objects using a seedable colormap
+            # We'll generate up to 20 random color bounds to keep things vibrant
+            np.random.seed(42)
+            colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
+            
+            # Draw Masks First (so text labels/bounding box borders remain crisp on top)
+            if hasattr(results[0], 'masks') and results[0].masks is not None:
+                # Get native image dimensions to resize masks if needed
+                img_h, img_w = image.shape[:2]
+                
+                for out_idx, orig_idx in enumerate(final_kept_indices):
+                    # Extract the specific binary mask data matrix (0s and 1s)
+                    # Convert torch tensor back to a standard numpy matrix array
+                    binary_mask = results[0].masks.data[orig_idx].cpu().numpy().astype(np.uint8)
+                    
+                    # Ensure mask matches exact OpenCV frame canvas dimensions
+                    if binary_mask.shape[0] != img_h or binary_mask.shape[1] != img_w:
+                        binary_mask = cv2.resize(binary_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                    
+                    # Choose color based on the item index
+                    color = colors[out_idx % len(colors)].tolist()
+                    
+                    # Create a solid color canvas layer matching the original image size
+                    colored_mask = np.zeros_like(image, dtype=np.uint8)
+                    colored_mask[binary_mask == 1] = color
+                    
+                    # Blend the colored mask layer transparently onto our working image frame
+                    # Alpha=0.6 (keep original), Beta=0.4 (apply tinted mask transparency mix)
+                    cv2.addWeighted(image, 1.0, colored_mask, 0.4, 0, dst=image)
+
+            # Draw Bounding Boxes and Text Labels Second
+            for out_idx, obj in enumerate(detected_objects):
+                x1, y1, x2, y2 = obj["box"]
+                label = f"{obj['label']} {obj['conf']:.2f}"
+                
+                # Match the box border color to the mask color we generated above
+                color = colors[out_idx % len(colors)].tolist()
+                
+                cv2.rectangle(image, (x1, y1), (x2, y2), color, 3)
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, color, 2, cv2.LINE_AA)
+            
+            # Encode modified image array matrix back into JPEG memory buffer
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                b64_string = base64.b64encode(encoded_image).decode('utf-8')
+                return_output["annotated_image_b64"] = b64_string
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+'''
+import base64
+import cv2
+import numpy as np
+import requests
+
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
+    text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    
+    if not image_url:
+        return {"error": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode raw image bytes
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        
         # 2. Run inference using pre-warmed model
         predictor.set_image(image_url)
         results = predictor(text=text_prompts)
@@ -150,6 +296,7 @@ def handler(job):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+'''
 
 '''
 import base64
