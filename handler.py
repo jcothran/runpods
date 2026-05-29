@@ -43,6 +43,155 @@ overrides = dict(
 )
 predictor = SAM3SemanticPredictor(overrides=overrides)
 
+
+import base64
+import cv2
+import numpy as np
+import requests
+
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
+    text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    
+    if not image_url:
+        return {"status": "error", "message": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode raw image bytes for canvas operations
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        img_h, img_w = image.shape[:2]
+        
+        # 2. Run inference using the pre-warmed model
+        predictor.set_image(image_url)
+        results = predictor(text=text_prompts)
+        
+        raw_boxes = []
+        confidences = []
+        class_ids = []
+        mask_indices = []
+        
+        # 3. Harvest raw predictions
+        if results and results[0].boxes:
+            for idx, box in enumerate(results[0].boxes):
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0].item()) if (hasattr(box, 'conf') and box.conf is not None) else 1.0
+                class_id = int(box.cls[0].item()) if (hasattr(box, 'cls') and box.cls is not None) else 0
+                
+                raw_boxes.append([x1, y1, x2 - x1, y2 - y1])  # [x, y, w, h]
+                confidences.append(conf)
+                class_ids.append(class_id)
+                mask_indices.append(idx)
+
+        # 4. Apply Non-Maximum Suppression (NMS) to clear overlapping duplicates
+        indices = []
+        if raw_boxes:
+            indices = cv2.dnn.NMSBoxes(
+                bboxes=raw_boxes, 
+                scores=confidences, 
+                score_threshold=0.25, 
+                nms_threshold=0.45
+            )
+        
+        if len(indices) > 0:
+            indices = np.array(indices).flatten()
+
+        # 5. Compile the clean, filtered object collection with area & polygon metrics
+        detected_objects = []
+        final_kept_indices = []
+        has_masks = hasattr(results[0], 'masks') and results[0].masks is not None
+
+        for i in indices:
+            x, y, w, h = raw_boxes[i]
+            x1, y1, x2, y2 = x, y, x + w, y + h
+            class_id = class_ids[i]
+            conf = confidences[i]
+            orig_idx = mask_indices[i]
+            
+            label_name = text_prompts[class_id] if class_id < len(text_prompts) else f"Object_{class_id}"
+            
+            pixel_area = 0
+            polygon_coords = []
+            
+            # Extract analytics from the binary pixel array if masks exist
+            if has_masks:
+                binary_mask = results[0].masks.data[orig_idx].cpu().numpy().astype(np.uint8)
+                
+                # Match native image canvas dimensions if working with downscaled tensors
+                if binary_mask.shape[0] != img_h or binary_mask.shape[1] != img_w:
+                    binary_mask = cv2.resize(binary_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                
+                # Metric A: Total surface area calculated via pixel count summation
+                pixel_area = int(np.sum(binary_mask))
+                
+                # Metric B: Vectorized polygon contour generation
+                contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    largest_contour = max(contours, key=cv2.contourArea)
+                    polygon_coords = largest_contour.reshape(-1, 2).tolist()
+
+            detected_objects.append({
+                "box": [x1, y1, x2, y2],
+                "label": label_name,
+                "conf": conf,
+                "pixel_area": pixel_area,
+                "polygon": polygon_coords
+            })
+            final_kept_indices.append(orig_idx)
+
+        # 6. Base JSON text payload response structure
+        return_output = {
+            "status": "success",
+            "predictions": detected_objects,
+            "detected_boxes": [obj["box"] for obj in detected_objects],
+            "annotated_image_b64": None,
+            "message": f"Successfully processed {image_url}"
+        }
+
+        # 7. Blend masks and draw boxes onto image if requested
+        if return_annotated_image and detected_objects:
+            np.random.seed(42)  # Maintain stable color palette across runs
+            colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
+            
+            # Loop 1: Layer all translucent masks first
+            if has_masks:
+                for out_idx, orig_idx in enumerate(final_kept_indices):
+                    binary_mask = results[0].masks.data[orig_idx].cpu().numpy().astype(np.uint8)
+                    if binary_mask.shape[0] != img_h or binary_mask.shape[1] != img_w:
+                        binary_mask = cv2.resize(binary_mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+                    
+                    color = colors[out_idx % len(colors)].tolist()
+                    colored_mask = np.zeros_like(image, dtype=np.uint8)
+                    colored_mask[binary_mask == 1] = color
+                    
+                    # Blend colored layer into working image array with 40% mask transparency opacity
+                    cv2.addWeighted(image, 1.0, colored_mask, 0.4, 0, dst=image)
+
+            # Loop 2: Layer crisp bounding borders and text elements on top
+            for out_idx, obj in enumerate(detected_objects):
+                x1, y1, x2, y2 = obj["box"]
+                label = f"{obj['label']} ({obj['pixel_area']:,} px)"
+                color = colors[out_idx % len(colors)].tolist()
+                
+                cv2.rectangle(image, (x1, y1), (x2, y2), color, 3)
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.5, color, 2, cv2.LINE_AA)
+            
+            # Encode modified image array matrix to Base64 ASCII string layout
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                return_output["annotated_image_b64"] = base64.b64encode(encoded_image).decode('utf-8')
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+        
+'''
 import base64
 import cv2
 import numpy as np
@@ -186,7 +335,7 @@ def handler(job):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
+'''
 
 '''
 import base64
