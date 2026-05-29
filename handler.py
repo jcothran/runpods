@@ -95,8 +95,8 @@ def handler(job):
             indices = cv2.dnn.NMSBoxes(
                 bboxes=raw_boxes, 
                 scores=confidences, 
-                score_threshold=0.25, 
-                nms_threshold=0.45
+                score_threshold=0.50, #was 0.25
+                nms_threshold=0.25 #was 0.45
             )
         
         # Flatten indices array if necessary (handles differences across OpenCV versions)
