@@ -43,12 +43,95 @@ overrides = dict(
 )
 predictor = SAM3SemanticPredictor(overrides=overrides)
 
+
+import base64
+import cv2
+import numpy as np
+import requests
+
+def handler(job):
+    """The serverless API entry point called on every new camera image trigger."""
+    job_input = job.get('input', {})
+    image_url = job_input.get("image_path")
+    text_prompts = job_input.get("prompts", ["person", "bus", "glasses"])
+    return_annotated_image = job_input.get('return_annotated_image', False)
+    
+    if not image_url:
+        return {"error": "Missing 'image_path' in request payload."}
+
+    try:
+        # 1. Fetch and decode the raw image bytes for OpenCV annotation drawing
+        response = requests.get(image_url)
+        image_bytes = np.frombuffer(response.content, np.uint8)
+        image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
+        
+        # 2. Run inference using the pre-warmed model
+        predictor.set_image(image_url)
+        results = predictor(text=text_prompts)
+        
+        detected_objects = []
+        
+        # 3. Match your initial logic checking if boxes exist
+        if results and results[0].boxes:
+            boxes = results[0].boxes
+            
+            for box in boxes:
+                # Extract coordinates as standard integers for OpenCV compatibility
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                
+                # Safely extract confidence matrix strings
+                conf = float(box.conf[0].item()) if (hasattr(box, 'conf') and box.conf is not None) else 1.0
+                class_id = int(box.cls[0].item()) if (hasattr(box, 'cls') and box.cls is not None) else 0
+                
+                # Map the label directly to your text prompt string to avoid missing attribute errors
+                if class_id < len(text_prompts):
+                    label_name = text_prompts[class_id]
+                else:
+                    label_name = f"Object_{class_id}"
+                
+                # Append data formatted cleanly for your local client tracking pipeline
+                detected_objects.append({
+                    "box": [x1, y1, x2, y2],
+                    "label": label_name,
+                    "conf": conf
+                })
+
+        # 4. Construct response dictionary matching your original layout
+        return_output = {
+            "status": "success",
+            "predictions": detected_objects,       # Local text logging pipeline reads this
+            "detected_boxes": [obj["box"] for obj in detected_objects], # Keeps your original exact coordinate array layout intact
+            "annotated_image_b64": None,
+            "message": f"Successfully processed {image_url}"
+        }
+
+        # 5. Draw bounding boxes on demand if the local client asks for it
+        if return_annotated_image and detected_objects:
+            for obj in detected_objects:
+                x1, y1, x2, y2 = obj["box"]
+                label = f"{obj['label']} {obj['conf']:.2f}"
+                
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, (0, 255, 0), 2, cv2.LINE_AA)
+            
+            success, encoded_image = cv2.imencode('.jpg', image)
+            if success:
+                b64_string = base64.b64encode(encoded_image).decode('utf-8')
+                return_output["annotated_image_b64"] = b64_string
+
+        return return_output
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 #import base64
 #import io
 #import cv2
 #import numpy as np
 #import requests
 
+'''
 import base64
 import cv2
 import numpy as np
@@ -133,6 +216,7 @@ def handler(job):
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+'''
 
 '''
 def handler(job):
