@@ -93,8 +93,8 @@ def handler(job):
             indices = cv2.dnn.NMSBoxes(
                 bboxes=raw_boxes, 
                 scores=confidences, 
-                score_threshold=0.25, 
-                nms_threshold=0.45
+                score_threshold=0.45, 
+                nms_threshold=0.25
             )
         
         if len(indices) > 0:
