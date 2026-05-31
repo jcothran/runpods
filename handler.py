@@ -130,7 +130,7 @@ def handler(job):
         # 5. Apply NMS to merge overlapping predictions
         indices = []
         if raw_boxes:
-            indices = cv2.dnn.NMSBoxes(bboxes=raw_boxes, scores=confidences, score_threshold=0.25, nms_threshold=0.45)
+            indices = cv2.dnn.NMSBoxes(bboxes=raw_boxes, scores=confidences, score_threshold=0.50, nms_threshold=0.25)
         if len(indices) > 0:
             indices = np.array(indices).flatten()
 
