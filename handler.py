@@ -5,7 +5,7 @@ import runpod
 from ultralytics.models.sam import SAM3SemanticPredictor
 
 #MODEL_PATH = "/tmp/sam3.pt"
-MODEL_PATH = "/workspace/sam/sam3.pt"
+MODEL_PATH = "/runpods-volume/sam/sam3.pt"
 MODEL_URL = "http://floridaapdata.org/sam3.pt"
 
 def download_model_if_needed():
@@ -39,6 +39,7 @@ overrides = dict(
     task="segment",
     mode="predict",
     model=MODEL_PATH,
+    device=0,   # 👈 FORCE GPU USAGE (0 is the first GPU)    
     half=True,
     save=False, # Turning off save to keep execution times under a second
 )
