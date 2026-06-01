@@ -5,7 +5,7 @@ import runpod
 from ultralytics.models.sam import SAM3SemanticPredictor
 
 #MODEL_PATH = "/tmp/sam3.pt"
-MODEL_PATH = "/runpods-volume/sam/sam3.pt"
+MODEL_PATH = "/runpod-volume/sam/sam3.pt"
 MODEL_URL = "http://floridaapdata.org/sam3.pt"
 
 def download_model_if_needed():
