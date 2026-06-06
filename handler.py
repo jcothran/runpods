@@ -7,6 +7,7 @@ from ultralytics.models.sam import SAM3SemanticPredictor
 #MODEL_PATH = "/tmp/sam3.pt"
 MODEL_PATH = "/runpod-volume/sam/sam3.pt"
 MODEL_URL = "http://floridaapdata.org/sam3.pt"
+REMOTE_TAR_URL = "http://saludasys.org/webcoos.tar"  # 🌐 Source server link destination
 
 def download_model_if_needed():
     """Checks if the 4GB SAM3 file is present; if not, downloads it, bypassing SSL redirects."""
