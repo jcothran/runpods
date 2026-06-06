@@ -55,34 +55,34 @@ import numpy as np
 import requests
 
 def handler(job):
-    """The serverless API entry point handling single or batched camera triggers."""
     job_input = job.get('input', {})
-    
-    # Standardize input to handle either a single image or an explicit batch array
     batch_items = job_input.get("batch_items", [])
-    image_tar_b64 = job_input.get("image_tar_b64", None)
+    use_tar_url = job_input.get("use_tar_url", False)
     global_exemplar_b64 = job_input.get("exemplar_image_b64", None)
     
-    # Global fallback configuration options
     global_return_annotated_image = job_input.get('return_annotated_image', False)
     global_return_boxes = job_input.get('return_boxes', True)
     global_return_polygons = job_input.get('return_polygons', False)
 
-    # Core extraction runtime layer for the decoupled pre-downloaded images
     extracted_dir = "/tmp/extracted_images"
     if os.path.exists(extracted_dir):
         shutil = __import__('shutil')
         shutil.rmtree(extracted_dir)
     os.makedirs(extracted_dir, exist_ok=True)
 
-    if image_tar_b64:
+    # Fetch and extract the hosted batch archive file if flag is enabled
+    if use_tar_url:
         try:
-            tar_bytes = base64.b64decode(image_tar_b64)
-            with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r") as tar:
-                tar.extractall(path=extracted_dir)
-            print(f"🔓 Successfully unpacked base64 images archive directly to {extracted_dir}")
+            print(f"📥 Stream fetching batch bundle from server: {REMOTE_TAR_URL}")
+            response = requests.get(REMOTE_TAR_URL, timeout=30)
+            if response.status_code == 200:
+                with tarfile.open(fileobj=io.BytesIO(response.content), mode="r") as tar:
+                    tar.extractall(path=extracted_dir)
+                print(f"🔓 Successfully unpacked hosted tar layout directly to {extracted_dir}")
+            else:
+                print(f"⚠️ Web Server returned status code: {response.status_code}. Using fallback loop.")
         except Exception as tar_err:
-            print(f"❌ Failed processing incoming tarball payload attachment: {tar_err}")
+            print(f"❌ Failed processing web hosted tarball attachment routing: {tar_err}")
 
     if not batch_items:
         single_url = job_input.get("image_path")
@@ -98,30 +98,26 @@ def handler(job):
 
     compiled_batch_results = []
 
-    # Iterate over every asset sequentially inside GPU execution memory scope
     for item in batch_items:
         image_url = item.get("image_path")
         local_archive_filename = item.get("local_archive_filename")
         text_prompts = item.get("prompts", ["water", "dock", "shoreline"])
         source_filename = item.get("source_filename", "unknown_source")
         
-        # Pull item-specific overrides if provided, otherwise default to global switches
         return_annotated_image = item.get('return_annotated_image', global_return_annotated_image)
         return_boxes = item.get('return_boxes', global_return_boxes)
         return_polygons = item.get('return_polygons', global_return_polygons)
-        
-        # Determine specific item exemplar string
         exemplar_b64 = item.get("exemplar_image_b64", global_exemplar_b64)
 
         image = None
         
-        # Check first if the image was unpacked from the local tar file
+        # Method A: Try reading the uncompressed image out of local storage cache
         if local_archive_filename:
             target_local_path = os.path.join(extracted_dir, local_archive_filename)
             if os.path.exists(target_local_path):
                 image = cv2.imread(target_local_path, cv2.IMREAD_COLOR)
 
-        # Fallback Strategy: If tar wasn't provided or the asset wasn't found inside it, run fallback link download loop
+        # Method B: Absolute fallback tracking loop execution
         if image is None and image_url:
             try:
                 response = requests.get(image_url, timeout=10)
@@ -159,7 +155,6 @@ def handler(job):
                 except Exception as b64_err:
                     print(f"⚠️ Exemplar processing issue: {b64_err}")
 
-            # Feed frame to SAM3
             predictor.set_image(image)
             results = predictor(exemplar=exemplar_img, exemplar_mask=exemplar_mask) if exemplar_img is not None else predictor(text=text_prompts)
             
@@ -206,8 +201,6 @@ def handler(job):
                 final_kept_indices.append(orig_idx)
 
             annotated_image_b64 = None
-
-            # 7. Core OpenCV Drawing Layer
             if return_annotated_image and detected_objects:
                 np.random.seed(42)
                 colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
@@ -230,7 +223,6 @@ def handler(job):
                 if success:
                     annotated_image_b64 = base64.b64encode(encoded_image).decode('utf-8')
 
-            # Append successful frame evaluations back to the batch tracking response array
             compiled_batch_results.append({
                 "image_path": image_url,
                 "source_filename": source_filename,
@@ -253,6 +245,8 @@ def handler(job):
     return {"status": "success", "batch_results": compiled_batch_results}
 
 runpod.serverless.start({"handler": handler})
+
+
 
 '''
 #client_pipeline_image.py.old4
