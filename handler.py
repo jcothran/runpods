@@ -5,8 +5,8 @@ import runpod
 from ultralytics.models.sam import SAM3SemanticPredictor
 
 # --- SUPPRESS SSL WARNINGS IN LOGS ---
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+#from requests.packages.urllib3.exceptions import InsecureRequestWarning
+#requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #MODEL_PATH = "/tmp/sam3.pt"
 MODEL_PATH = "/runpod-volume/sam/sam3.pt"
