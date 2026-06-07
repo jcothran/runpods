@@ -1,8 +1,10 @@
 #FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 FROM runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
 
-# Ensure Ultralytics dependencies are fully pre-baked into the image layer
+# 2. Install Python libraries and pre-bake Ultralytics dependencies
 RUN pip install --no-cache-dir \
+    ultralytics \
+    runpod \
     timm==1.0.27 \
     typer==0.25.1 \
     safetensors==0.7.0 \
