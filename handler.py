@@ -4,6 +4,10 @@ import urllib.request
 import runpod
 from ultralytics.models.sam import SAM3SemanticPredictor
 
+# --- SUPPRESS SSL WARNINGS IN LOGS ---
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 #MODEL_PATH = "/tmp/sam3.pt"
 MODEL_PATH = "/runpod-volume/sam/sam3.pt"
 MODEL_URL = "http://floridaapdata.org/sam3.pt"
@@ -75,7 +79,7 @@ def handler(job):
     if use_tar_url:
         try:
             print(f"📥 Stream fetching batch bundle from server: {REMOTE_TAR_URL}")
-            response = requests.get(REMOTE_TAR_URL, timeout=30)
+            response = requests.get(REMOTE_TAR_URL, timeout=30, verify=False)
             if response.status_code == 200:
                 with tarfile.open(fileobj=io.BytesIO(response.content), mode="r") as tar:
                     tar.extractall(path=extracted_dir)
