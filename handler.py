@@ -44,7 +44,8 @@ overrides = dict(
     task="segment",
     mode="predict",
     model=MODEL_PATH,
-    device=0,   # 👈 FORCE GPU USAGE (0 is the first GPU)    
+    device=0,   # 👈 FORCE GPU USAGE (0 is the first GPU)
+    imgsz=1024,
     half=True,
     save=False, # Turning off save to keep execution times under a second
 )
