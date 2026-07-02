@@ -28,7 +28,7 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
                                 │ (Secure HTTP Request)
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 3: Remote GPU Compute ([handler.py](https://github.com/jcothran/runpods/blob/main/handler.py) / [Dockerfile](https://github.com/jcothran/runpods/blob/main/Dockerfile))     │
+  │ Phase 3: Remote GPU Compute (handler.py / Dockerfile)     │
   │ ├─ Worker wakes up, downloads & extracts webcoos.tar      │
   │ ├─ Processes SAM3 model inference in VRAM via GPU         │
   │ └─ Returns coordinates & base64 annotated visualizations  │
@@ -42,6 +42,8 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
   └───────────────────────────────────────────────────────────┘
 ```
 
+[handler.py](https://github.com/jcothran/runpods/blob/main/handler.py)
+[Dockerfile](https://github.com/jcothran/runpods/blob/main/Dockerfile)
 ---
 
 ## 🛠️ Components & File Manifest
@@ -49,13 +51,37 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
 ### 1. Scheduler & Wrappers (Local Host Machine)
 
 #### `crontab`
+
 Manages execution timing inside the running Docker container container (`2b9`).
 * **Metadata Polling:** Runs every 10 minutes (`0,10,20,30,40,50`) from 8:00 AM to 6:50 PM to query the newest camera asset references.
 * **Pipeline Execution:** Runs once an hour at the top of the hour (`0`) from 9:00 AM to 7:00 PM to batch-process accumulated image frames.
 
+```
+#crontab - 2b9 is the docker container id 
+
+#get image refs every 10 minutes and batch process for detections once an hour (following hour offset)
+0,10,20,30,40,50 12,13,14,15,16,17,18,19,20,21,22 * * * docker exec 2b9 ./sh_json_latest_sam3
+0 13,14,15,16,17,18,19,20,21,22,23 * * * docker exec 2b9 ./sh_json_track_sam3
+```
+
 #### `sh_json_latest_sam3` & `sh_json_track_sam3`
 Lightweight bash utilities that ensure the environment context changes to `/var/www/html/sam3` before executing the respective Python sub-modules.
 
+```
+#sh_json_latest_sam3
+#! /bin/bash
+cd /var/www/html/sam3;
+python3 json_latest_uuid.py
+exit 0
+```
+
+```
+#sh_json_track_sam3
+#! /bin/bash
+cd /var/www/html/sam3;
+python3 client_pipeline_image.py
+exit 0
+```
 ---
 
 ### 2. Python Source Files (Local Host Machine)
