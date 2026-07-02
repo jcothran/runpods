@@ -250,7 +250,10 @@ def handler(job):
 
     return {"status": "success", "batch_results": compiled_batch_results}
 
+# Register with RunPod Serverless
 runpod.serverless.start({"handler": handler})
+
+
 
 
 
@@ -1485,5 +1488,4 @@ def handler(job):
         return {"status": "error", "message": str(e)}
 '''
 
-# Register with RunPod Serverless
-runpod.serverless.start({"handler": handler})
+
