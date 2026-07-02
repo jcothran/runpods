@@ -4,7 +4,7 @@ This repository contains an automated, distributed computer vision pipeline desi
 
 For this project example, 11 camera feeds provide a snapshot image once every 10 minutes for 10 hours of the day for a total of 660 images per day. 66 images are batch hourly processed by the GPU at 1024 pixel resolution in about 1 minute at a cost of about $0.01. The cost of GPU object detection on these images is about $0.10/day and $0.05/day for local storage(20 GB used with the model weights(.pt) file) or about $5/month or $60/year.
 
-Client server(ubuntu, ![plan type:basic, 1 CPU, 512 MB RAM, 10 GB disk, 500 GB bandwidth](./images/basic_droplet.jpg)) running on [digitalocean droplet](https://www.digitalocean.com/products/droplets) docker container at $4/month.
+Client server(ubuntu, [plan type:basic, 1 CPU, 512 MB RAM, 10 GB disk, 500 GB bandwidth](./images/basic_droplet.jpg)) running on [digitalocean droplet](https://www.digitalocean.com/products/droplets) docker container at $4/month.
 
 ---
 
