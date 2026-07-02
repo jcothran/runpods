@@ -56,8 +56,9 @@ To pivot your setup seamlessly from Serverless to Pods, implement the following 
 5. Configure your **Volume Disk** and **Container Disk** allocations.
 6. Click **Deploy**. Within 1–2 minutes, your persistent workspace will be live with Jupyter and SSH access ready.
 
+---
 
-Yes, you can absolutely automate RunPod Pods to run on a daily schedule, but because Pods don't have a native "cron schedule" button in the web UI, you have to use a little scripting.
+To automate RunPod Pods to run on a daily schedule, because Pods don't have a native "cron schedule" button in the web UI, you have to use a little scripting.
 
 The most robust way to do this is by using the RunPod Web API or Python SDK paired with a local task scheduler (like standard Cron on Linux/Mac, Task Scheduler on Windows, or a free GitHub Action).
 
@@ -69,7 +70,7 @@ If your container takes a long time to download weights or packages, you don't w
 Step 1: Your Startup Script (Inside the Pod)
 Set up your Python script inside the pod so that when it finishes its 1–2 hours of work, it automatically stops itself. You can do this by using the RunPod API to tell the system to halt the pod from the inside.
 
-```
+```python
 import os
 import requests
 
@@ -94,7 +95,7 @@ if __name__ == "__main__":
 Step 2: The Daily Trigger (Outside the Pod)
 Now you just need an external trigger to wake the pod up every day. From your home machine, a local server, or a cloud function, schedule a simple API call to run daily at your preferred hour:
 
-```
+```bash
 # Example Curl command to start your specific pod id
 curl -X POST "https://api.runpod.io/v1/pod/start/YOUR_POD_ID?api_key=YOUR_RUNPOD_API_KEY"
 ```
@@ -108,7 +109,7 @@ If your environment is entirely packaged into a custom Docker image and it doesn
 
 You can write a lightweight local Python script using the runpod library, and schedule it to run once a day on your local machine or via GitHub Actions:
 
-```
+```python
 import runpod
 import time
 
