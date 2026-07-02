@@ -28,7 +28,7 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
                                 │ (Secure HTTP Request)
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 3: Remote GPU Compute (handler.py / Dockerfile)     │
+  │ Phase 3: Remote GPU Compute ([handler.py](https://github.com/jcothran/runpods/blob/main/handler.py) / [Dockerfile](https://github.com/jcothran/runpods/blob/main/Dockerfile))     │
   │ ├─ Worker wakes up, downloads & extracts webcoos.tar      │
   │ ├─ Processes SAM3 model inference in VRAM via GPU         │
   │ └─ Returns coordinates & base64 annotated visualizations  │
