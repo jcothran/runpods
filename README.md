@@ -138,5 +138,7 @@ The below link provides a detection count graph display of beach activity/person
 
 https://saludasys.org/counts/index_webcoos_sam3.php?cam=noaa_currituck_sailfish
 
+![sailfish_sam3_graph.jpg](sailfish_sam3_graph.jpg)
+![sailfish_sam3_beach.jpg](sailfish_sam3_beach.jpg)
 
 
