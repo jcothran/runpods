@@ -58,7 +58,7 @@ To pivot your setup seamlessly from Serverless to Pods, implement the following 
 
 ---
 
-##Automate RunPods to run on a daily schedule
+## Automate RunPods to run on a daily schedule
 
 To automate RunPod Pods to run on a daily schedule, because Pods don't have a native "cron schedule" button in the web UI, you have to use a little scripting.
 
