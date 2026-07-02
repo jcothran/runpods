@@ -69,7 +69,7 @@ If your container takes a long time to download weights or packages, you don't w
 Step 1: Your Startup Script (Inside the Pod)
 Set up your Python script inside the pod so that when it finishes its 1–2 hours of work, it automatically stops itself. You can do this by using the RunPod API to tell the system to halt the pod from the inside.
 
-```Python
+```
 import os
 import requests
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 Step 2: The Daily Trigger (Outside the Pod)
 Now you just need an external trigger to wake the pod up every day. From your home machine, a local server, or a cloud function, schedule a simple API call to run daily at your preferred hour:
 
-```Bash
+```
 # Example Curl command to start your specific pod id
 curl -X POST "https://api.runpod.io/v1/pod/start/YOUR_POD_ID?api_key=YOUR_RUNPOD_API_KEY"
 ```
@@ -108,7 +108,7 @@ If your environment is entirely packaged into a custom Docker image and it doesn
 
 You can write a lightweight local Python script using the runpod library, and schedule it to run once a day on your local machine or via GitHub Actions:
 
-```Python
+```
 import runpod
 import time
 
