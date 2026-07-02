@@ -26,7 +26,7 @@ https://saludasys.org/counts/index_webcoos_sam3.php?cam=noaa_currituck_sailfish
 
 ## 🏗️ System Architecture & Workflow
 
-The system is split into a **Local Orchestrator** (managing scheduling, API polling, asset distribution, and file logging) and a **Remote Serverless GPU Worker** (handling deep learning inference). The remote workers use a 'Serverless' endpoint initial setup which tracks/rebuilds with any changes to the github Dockerfile and handler.py file in the remote server container setup and execution.
+The system is split into a **Local Orchestrator** (managing scheduling, API polling, asset distribution, and file logging on the digitalocean 'client' server) and a **Remote Serverless GPU Worker** (handling deep learning inference on the RunPods batch hourly instanced GPU). The remote workers use a 'Serverless' endpoint initial setup which tracks/rebuilds with any changes to the github Dockerfile and handler.py file in the remote server container setup and execution.
 
 ```
 [Local Host Crontab] ──► Triggering Bash Wrappers
