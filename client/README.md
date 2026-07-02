@@ -1,6 +1,6 @@
 # Automated Coastal Monitoring Pipeline (WebCOOS & RunPod SAM3)
 
-This repository contains an automated, distributed computer vision pipeline designed to pull coastal monitoring camera images from WebCOOS, package them for batch processing, and run object detection/segmentation tasks using [**Ultralytics SAM3 (Segment Anything Model 3)**](https://docs.ultralytics.com/models/sam-3) hosted on [**RunPod Serverless GPU infrastructure**](https://www.runpod.io/).
+This repository contains an automated, distributed computer vision pipeline designed to pull coastal monitoring camera images from WebCOOS, package them for batch processing, and run object detection/segmentation tasks using [**Ultralytics SAM3 (Segment Anything Model 3)**](https://docs.ultralytics.com/models/sam-3) hosted on [**RunPod Serverless GPU infrastructure**](https://www.runpod.io/). Client server running on [digitalocean droplet](https://www.digitalocean.com/products/droplets) docker container.
 
 ---
 
@@ -43,6 +43,7 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
 ```
 
 [handler.py](https://github.com/jcothran/runpods/blob/main/handler.py)
+
 [Dockerfile](https://github.com/jcothran/runpods/blob/main/Dockerfile)
 ---
 
