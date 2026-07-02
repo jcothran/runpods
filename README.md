@@ -7,9 +7,15 @@ For this project example, 11 camera feeds provide a snapshot image once every 10
 
 Client server(ubuntu, [plan type:basic, 1 CPU, 512 MB RAM, 10 GB disk, 500 GB bandwidth](./images/basic_droplet.jpg) running on [digitalocean droplet](https://www.digitalocean.com/products/droplets) docker container at $4/month.
 
+## Further steps
+
 Additional documentation can be provided(forthcoming or on request), detailing how the json responses can be written as relational database records for later query and output products such as detection/activity graphs, summaries or notification shown below.
 
 Camera image snapshot or burst feeds also provide options towards using more trailcam oriented camera setups which can be placed in locations with less power or connectivity options, using solar for power and cellular to send images. Project details using trailcams are detailed [here](https://docs.google.com/document/d/1LH2lzXTiGXBTLM_nSC4BXL20YMWh31y8NctCvDCjm6M)
+
+The ability to return polygon and associated pixel area for detections may also provide some ability to track changes to water surface area with tides, storm surge or flooding and will be implemented/tested.
+
+In addition to a large vocabulary prompt texting capability, the ability to provide an example(exemplar) image(or sub-reference images within a single image) for detection purposes perhaps provides some more custom or specific visual matching criteria.
 
 ---
 
