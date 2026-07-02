@@ -87,11 +87,11 @@ exit 0
 
 ### 2. Python Source Files (Local Host Machine)
 
-#### `json_latest_uuid.py`
+#### [`json_latest_uuid.py`](https://github.com/jcothran/runpods/blob/main/client/json_latest_uuid.py)
 * **Function:** Queries the WebCOOS API utilizing an authenticated token across a predetermined map of unique camera UUIDs (e.g., `uncw_masonboro_inlet`, `maracoos_oceancity`).
 * **Output:** Creates the `jsonl/` directory if missing and dumps the latest unique timestamped capture information inside: `jsonl/{camera_filename}_{YYYYMMDD_HHMMSS}.jsonl`.
 
-#### `client_pipeline_image.py`
+#### [`client_pipeline_image.py`](https://github.com/jcothran/runpods/blob/main/client/client_pipeline_image.py)
 The overarching orchestrator of the localized workflow loop.
 * **Directory Scan:** Examines `./jsonl` for fresh file strings omitting the `'sam3'` processing signature.
 * **Atomic Tar Assembly:** Downloads the original remote source image via standard HTTP GET, tracks them via an allowed camera whitelist, and packages them inside a compressed archive block at `/var/www/html/webcoos.tar`. Uses a `.tmp` staging process with an instant swap (`os.replace`) to guarantee zero race conditions on the web server.
