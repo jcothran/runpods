@@ -55,3 +55,87 @@ To pivot your setup seamlessly from Serverless to Pods, implement the following 
 4. Pick a deployment template (e.g., `RunPod PyTorch`, `RunPod TensorFlow`, or your own custom Docker container image).
 5. Configure your **Volume Disk** and **Container Disk** allocations.
 6. Click **Deploy**. Within 1–2 minutes, your persistent workspace will be live with Jupyter and SSH access ready.
+
+
+Yes, you can absolutely automate RunPod Pods to run on a daily schedule, but because Pods don't have a native "cron schedule" button in the web UI, you have to use a little scripting.
+
+The most robust way to do this is by using the RunPod Web API or Python SDK paired with a local task scheduler (like standard Cron on Linux/Mac, Task Scheduler on Windows, or a free GitHub Action).
+
+Here are the two best ways to handle it, depending on whether you want to completely destroy the pod daily to save money, or keep your files intact between runs.
+
+Method 1: The "Start & Stop" Approach (Saves Data)
+If your container takes a long time to download weights or packages, you don't want to delete it every day. Instead, you create a Pod with a Persistent Volume. You only pay a few cents a day to store your data, and you programmatically turn the GPU on and off.
+
+Step 1: Your Startup Script (Inside the Pod)
+Set up your Python script inside the pod so that when it finishes its 1–2 hours of work, it automatically stops itself. You can do this by using the RunPod API to tell the system to halt the pod from the inside.
+
+```Python
+import os
+import requests
+
+def main_work():
+    # Your 1-2 hour data pipeline, training, or batch job goes here
+    print("Running daily processing...")
+
+if __name__ == "__main__":
+    main_work()
+    
+    # --- AUTOMATIC SELF-SHUTDOWN ---
+    # Retrieve the current Pod ID from the environment variables
+    pod_id = os.environ.get("RUNPOD_POD_ID")
+    api_key = "YOUR_RUNPOD_API_KEY"
+    
+    if pod_id:
+        print(f"Job complete. Requesting shutdown for pod {pod_id}...")
+        url = f"https://api.runpod.io/v1/pod/stop/{pod_id}?api_key={api_key}"
+        requests.post(url)
+```
+
+Step 2: The Daily Trigger (Outside the Pod)
+Now you just need an external trigger to wake the pod up every day. From your home machine, a local server, or a cloud function, schedule a simple API call to run daily at your preferred hour:
+
+```Bash
+# Example Curl command to start your specific pod id
+curl -X POST "https://api.runpod.io/v1/pod/start/YOUR_POD_ID?api_key=YOUR_RUNPOD_API_KEY"
+```
+
+Linux/Mac: Put this line into a standard crontab -e job scheduled for every morning.
+
+Windows: Put it in a lightweight .bat script triggered by Task Scheduler.
+
+Method 2: The "Create & Terminate" Approach (Saves the Most Money)
+If your environment is entirely packaged into a custom Docker image and it doesn't need to save data between runs, you can save even more money by creating a fresh pod from scratch every day and terminating it entirely when done.
+
+You can write a lightweight local Python script using the runpod library, and schedule it to run once a day on your local machine or via GitHub Actions:
+
+```Python
+import runpod
+import time
+
+runpod.api_key = "YOUR_RUNPOD_API_KEY"
+
+# 1. Spin up a fresh GPU pod
+print("Launching daily GPU instance...")
+pod = runpod.create_pod(
+    name="Daily-Batch-Job",
+    image_name="your-docker-username/your-image:latest",
+    gpu_type_id="NVIDIA RTX 4090", # or RTX 5070 / 6000 Ada if available
+    gpu_count=1,
+    volume_in_gb=20
+)
+
+pod_id = pod['id']
+
+# 2. Wait for your script to do its thing 
+# (Alternatively, let the pod run its entrypoint script and just sleep here for 2 hours)
+time.sleep(7200) 
+
+# 3. Completely wipe the pod so billing stops entirely
+print("Time limit reached. Terminating pod...")
+runpod.terminate_pod(pod_id)
+```
+
+Which one should you pick?
+Go with Method 1 (Start/Stop) if you are working with large ML models, heavy checkpoints, or environments that take longer than 5 minutes to initialize. It ensures you don't waste time downloading gigabytes of weights every single day.
+
+Go with Method 2 (Create/Terminate) if your setup is ultra-lean, spins up instantly, and you want absolutely zero trailing storage fees on your account when the GPU is offline.
