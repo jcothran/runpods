@@ -6,6 +6,10 @@ For this project example, 11 camera feeds provide a snapshot image once every 10
 
 Client server(ubuntu, [plan type:basic, 1 CPU, 512 MB RAM, 10 GB disk, 500 GB bandwidth](./images/basic_droplet.jpg) running on [digitalocean droplet](https://www.digitalocean.com/products/droplets) docker container at $4/month.
 
+Additional documentation can be provided(forthcoming or on request), detailing how the json responses can be written as relational database records for later query and output products such as detection/activity graphs or summaries shown below.
+
+Camera image snapshot or burst feeds also provide options towards using more trailcam oriented camera setups which can be placed in locations with less power or connectivity options, using solar for power and cellular to send images. Project details using trailcams are detailed [here](https://docs.google.com/document/d/1LH2lzXTiGXBTLM_nSC4BXL20YMWh31y8NctCvDCjm6M)
+
 ---
 
 ## 🏗️ System Architecture & Workflow
@@ -101,8 +105,6 @@ The overarching orchestrator of the localized workflow loop.
 * **Atomic Tar Assembly:** Downloads the original remote source image via standard HTTP GET, tracks them via an allowed camera whitelist, and packages them inside a compressed archive block at `/var/www/html/webcoos.tar`. Uses a `.tmp` staging process with an instant swap (`os.replace`) to guarantee zero race conditions on the web server.
 * **Job Dispatch & Polling:** Transmits specialized prompt payloads (e.g., matching `"seal"` for wildlife hubs, or `"boat"` for maritime docks) to the RunPod cluster, then enters a defensive `while True` polling block monitoring the state of the GPU compute node.
 * **Data Resolution:** Unpacks returned box models, structures unified telemetry output matrices, maps base64-encoded visual annotations back into image files, and pushes processed metadata blocks into `./jsonl/archive`.
-
-Additional documentation can be provided(forthcoming or on request), detailing how the json responses can be written as relational database records for later query and output products such as detection/activity graphs or summaries.
 
 ---
 
