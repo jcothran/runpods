@@ -1,6 +1,6 @@
 # Automated Coastal Monitoring Pipeline (WebCOOS & RunPod SAM3)
 
-This repository contains an automated, distributed computer vision pipeline designed to pull coastal monitoring camera images from WebCOOS, package them for batch processing, and run object detection/segmentation tasks using **Ultralytics SAM3 (Segment Anything Model 3)** hosted on **RunPod Serverless GPU infrastructure**.
+This repository contains an automated, distributed computer vision pipeline designed to pull coastal monitoring camera images from WebCOOS, package them for batch processing, and run object detection/segmentation tasks using [**Ultralytics SAM3 (Segment Anything Model 3)**](https://docs.ultralytics.com/models/sam-3#overview) hosted on [**RunPod Serverless GPU infrastructure**](https://www.runpod.io/).
 
 ---
 
