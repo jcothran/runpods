@@ -129,3 +129,14 @@ The active Python runtime listening for jobs on the remote serverless GPU worker
 1.  **Serverless Cost-Efficiency:** VRAM warming handles heavy initialization overhead just once during cold boots. The compute worker only processes blocks when jobs populate the queue, saving significant idle GPU cost.
 2.  **Network Bundle Aggregation:** Compressing sequential image arrays into a single cohesive tarball asset structure circumvents standard network request overheads, keeping data ingestion fast and predictable.
 3.  **Atomic Persistence Safeties:** The pipeline never writes structures directly to production web directories. Staging assets under transient names (`webcoos.tar.tmp`) before calling explicit atomic system shifts avoids corrupting partial transfers if a step fails.
+
+---
+
+## Example detection counts and graph
+
+The below link provides a detection count graph display of beach activity/persons counted, with timestamp links below the graph to the image/detections found.
+
+https://saludasys.org/counts/index_webcoos_sam3.php?cam=noaa_currituck_sailfish
+
+
+
