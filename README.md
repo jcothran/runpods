@@ -102,6 +102,8 @@ The overarching orchestrator of the localized workflow loop.
 * **Job Dispatch & Polling:** Transmits specialized prompt payloads (e.g., matching `"seal"` for wildlife hubs, or `"boat"` for maritime docks) to the RunPod cluster, then enters a defensive `while True` polling block monitoring the state of the GPU compute node.
 * **Data Resolution:** Unpacks returned box models, structures unified telemetry output matrices, maps base64-encoded visual annotations back into image files, and pushes processed metadata blocks into `./jsonl/archive`.
 
+Additional documentation can be provided(forthcoming or on request), detailing how the json responses can be written as relational database records for later query and output products such as detection/activity graphs or summaries.
+
 ---
 
 ### 3. Serverless Environment Infrastructure (RunPod Container)
