@@ -6,7 +6,7 @@ For execution requirements extending from **an hour to several days** (e.g., mod
 
 ---
 
-## 1. RunPod Serverless vs. RunPod Pods
+## RunPod Serverless vs. RunPod Pods
 
 | Capability / Feature | RunPod Serverless | RunPod Pods (Cloud GPUs) |
 | :--- | :--- | :--- |
@@ -18,7 +18,7 @@ For execution requirements extending from **an hour to several days** (e.g., mod
 
 ---
 
-## 2. Choosing Your Dedicated GPU Tier (Pods)
+## Choosing Your Dedicated GPU Tier (Pods)
 
 RunPod categorizes its infrastructure into **Secure Cloud** (tier-3 enterprise data centers) and **Community Cloud** (peer-to-peer hosting, highly cost-effective). Below are the recommended dedicated GPU configurations optimized for extended workloads:
 
@@ -37,7 +37,7 @@ RunPod categorizes its infrastructure into **Secure Cloud** (tier-3 enterprise d
 
 ---
 
-## 3. Workflow Adjustments for Long-Running Tasks
+## Workflow Adjustments for Long-Running Tasks
 
 To pivot your setup seamlessly from Serverless to Pods, implement the following operational adjustments:
 
@@ -47,7 +47,7 @@ To pivot your setup seamlessly from Serverless to Pods, implement the following 
 
 ---
 
-## 4. Quick-Start Checklist to Launch a Pod
+## Quick-Start Checklist to Launch a Pod
 
 1. Log into your **RunPod Console** and navigate to **Manage -> Pods**.
 2. Click **Deploy** and toggle between *Secure Cloud* or *Community Cloud* depending on your budget and data security compliance.
@@ -57,6 +57,8 @@ To pivot your setup seamlessly from Serverless to Pods, implement the following 
 6. Click **Deploy**. Within 1–2 minutes, your persistent workspace will be live with Jupyter and SSH access ready.
 
 ---
+
+##Automate RunPods to run on a daily schedule
 
 To automate RunPod Pods to run on a daily schedule, because Pods don't have a native "cron schedule" button in the web UI, you have to use a little scripting.
 
