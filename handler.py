@@ -8,7 +8,6 @@ from ultralytics.models.sam import SAM3SemanticPredictor
 #from requests.packages.urllib3.exceptions import InsecureRequestWarning
 #requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-#MODEL_PATH = "/tmp/sam3.pt"
 MODEL_PATH = "/runpod-volume/sam/sam3.pt"
 
 REMOTE_TAR_URL = "http://saludasys.org/webcoos.tar"  # 🌐 Source server link destination
