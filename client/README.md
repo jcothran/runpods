@@ -87,7 +87,7 @@ The active Python runtime listening for jobs on the remote serverless GPU worker
 * **Optimized Network Intake:** Rather than bottlenecking the system by pulling 100 images sequentially via separate slow web streams, the handler downloads the unified `webcoos.tar` package directly from the master host (`saludasys.org`) and extracts it into `/tmp/extracted_images`.
 * **Execution Paradigms:** Resolves objects via two distinct methods depending on your payload requirements:
     1.  **Text Prompting:** Searches for targets matching language structures like `"person"`, `"umbrella"`, or `"bird"`.
-    2.  **Visual Exemplar Matching:** Uses an encoded transparency-based target mask (`water_sample.png`) to segment structural features resembling the target sample matrix.
+    2.  **Visual Exemplar Matching(optional):** Uses an encoded transparency-based target mask (`water_sample.png`) to segment structural features resembling the target sample matrix.
 * **Post-processing Refinement:** Evaluates overlapping bounding box configurations using Non-Maximum Suppression (`cv2.dnn.NMSBoxes`) to discard low-confidence duplicate layers.
 * **Result Structuring:** Formulates coordinate layouts, calculates precise pixel area sums, paints colored alpha masks over verified targets via OpenCV, converts the raw graphics array to an encapsulated base64 string, and passes the entire payload back down the WebSocket pipe to complete the job.
 
