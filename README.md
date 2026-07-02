@@ -33,14 +33,14 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
                                 │
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 1: Metadata Scraping (json_latest_uuid.py)         │
+  │ Phase 1(client server): Metadata Scraping (json_latest_uuid.py)         │
   │ ├─ Polls WebCOOS camera endpoints every 10 minutes       │
   │ └─ Logs latest frame references to unique local .jsonl    │
   └─────────────────────────────┬─────────────────────────────┘
                                 │
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 2: Local Orchestration (client_pipeline_image.py) │
+  │ Phase 2(client server): Local Orchestration (client_pipeline_image.py) │
   │ ├─ Scans pending .jsonl files hourly                      │
   │ ├─ Downloads images & packs them into an atomic .tar      │
   │ └─ Dispatches payload to RunPod Serverless execution API  │
@@ -48,7 +48,7 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
                                 │ (Secure HTTP Request)
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 3: Remote GPU Compute (handler.py / Dockerfile)     │
+  │ Phase 3(RunPods server): Remote GPU Compute (handler.py / Dockerfile)     │
   │ ├─ Worker wakes up, downloads & extracts webcoos.tar      │
   │ ├─ Processes SAM3 model inference in VRAM via GPU         │
   │ └─ Returns coordinates & base64 annotated visualizations  │
@@ -56,7 +56,7 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
                                 │ (API Response JSON)
                                 ▼
   ┌───────────────────────────────────────────────────────────┐
-  │ Phase 4: Finalization & Archiving                         │
+  │ Phase 4(client server): Finalization & Archiving                         │
   │ ├─ Writes final telemetry logs to host server webroot     │
   │ └─ Cleanly shifts processed metadata to input archive     │
   └───────────────────────────────────────────────────────────┘
