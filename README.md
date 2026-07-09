@@ -68,8 +68,8 @@ The system is split into a **Local Orchestrator** (managing scheduling, API poll
   └───────────────────────────────────────────────────────────┘
 ```
 
-* [handler.py](https://github.com/jcothran/runpods/blob/main/handler.py)
-* [Dockerfile](https://github.com/jcothran/runpods/blob/main/Dockerfile)
+* [handler.py](https://github.com/jcothran/runpods/blob/main/build/handler.py)
+* [Dockerfile](https://github.com/jcothran/runpods/blob/main/build/Dockerfile)
 
 ---
 
