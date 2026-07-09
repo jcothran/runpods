@@ -16,7 +16,7 @@ Camera image snapshot or burst feeds also provide options towards using more tra
 With SAM3:
   * the ability to return polygon and associated pixel area for detections may also provide some ability to track changes to water surface area with tides, storm surge or flooding and will be implemented/tested
   * in addition to a large vocabulary prompt texting capability, the ability to provide an example(exemplar) image(or sub-reference images within a single image) for detection purposes perhaps provides some more custom or specific visual matching criteria.
- 
+
 ---
 
 ## Example detection counts and graph
