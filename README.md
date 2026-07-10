@@ -26,7 +26,7 @@ SAM3 image/prompt testing [here](https://playground.roboflow.com/object-detectio
 
 The below link provides a detection count graph display of beach activity/persons counted, with timestamp links below the graph to the image/detections found.
 
-https://saludasys.org/counts/index_webcoos_sam3.php?cam=noaa_currituck_sailfish
+https://saludasys.org/counts/index_webcoos.php?cam=noaa_currituck_sailfish
 
 ![sailfish_sam3_graph.jpg](./images/sailfish_sam3_graph.jpg)
 ![sailfish_sam3_beach.jpg](./images/sailfish_sam3_beach.png)
