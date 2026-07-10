@@ -14,7 +14,7 @@ overrides = dict(
     mode="predict",
     model=MODEL_PATH,
     device=0,   # 👈 FORCE GPU USAGE (0 is the first GPU)
-    imgsz=1024,
+    imgsz=1008, #was 1024, gemini suggested 1008 as optimal
     half=True,
     save=False, # Turning off save to keep execution times under a second
 )
