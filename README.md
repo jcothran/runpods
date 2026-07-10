@@ -17,6 +17,9 @@ With SAM3:
   * the ability to return polygon and associated pixel area for detections may also provide some ability to track changes to water surface area with tides, storm surge or flooding and will be implemented/tested
   * in addition to a large vocabulary prompt texting capability, the ability to provide an example(exemplar) image(or sub-reference images within a single image) for detection purposes perhaps provides some more custom or specific visual matching criteria.
 
+SAM3 image/prompt testing [here](https://playground.roboflow.com/object-detection/seg-preview)
+  * [Results](https://docs.google.com/document/d/1uSuG5-Olqdz95HKnahTAM51-timbW8fssbwi0L6X7rU)
+
 ---
 
 ## Example detection counts and graph
