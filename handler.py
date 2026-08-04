@@ -5,8 +5,6 @@ from ultralytics.models.sam import SAM3SemanticPredictor
 
 MODEL_PATH = "/runpod-volume/sam/sam3.pt"
 
-REMOTE_TAR_URL = "http://saludasys.org/webcoos.tar"  # 🌐 Source server link destination
-
 # Warm up the predictor globally so it sits ready in VRAM
 overrides = dict(
     conf=0.25,
@@ -32,7 +30,7 @@ import requests
 def handler(job):
     job_input = job.get('input', {})
     batch_items = job_input.get("batch_items", [])
-    use_tar_url = job_input.get("use_tar_url", False)
+    remote_tar_url = job_input.get("remote_tar_url")
     global_exemplar_b64 = job_input.get("exemplar_image_b64", None)
     
     global_return_annotated_image = job_input.get('return_annotated_image', False)
@@ -46,10 +44,10 @@ def handler(job):
     os.makedirs(extracted_dir, exist_ok=True)
 
     # Fetch and extract the hosted batch archive file if flag is enabled
-    if use_tar_url:
+    if remote_tar_url:
         try:
             print(f"📥 Stream fetching batch bundle from server: {REMOTE_TAR_URL}")
-            response = requests.get(REMOTE_TAR_URL, timeout=30, verify=False)
+            response = requests.get(remote_tar_url, timeout=30, verify=False)
             if response.status_code == 200:
                 with tarfile.open(fileobj=io.BytesIO(response.content), mode="r") as tar:
                     tar.extractall(path=extracted_dir)
