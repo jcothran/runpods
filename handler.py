@@ -177,26 +177,50 @@ def handler(job):
             # =========================================================
             # FILTER SAME CLASS BOXES WITHIN LARGER BOXES(e.g. ICE fields)
             # =========================================================
+
             filtered_objects = []
-            filtered_indices = [] # Keeping mask indices in sync!
+            filtered_indices = [] 
+
+            # Set your threshold here (0.90 = 90% of the box must be inside)
+            CONTAINMENT_THRESHOLD = 0.90
 
             for list_idx, current_obj in enumerate(detected_objects):
-                # Safely get the box (fallback to 0s if it's missing for some reason)
-                cx1, cy1, cx2, cy2 = current_obj.get("box", [0,0,0,0]) 
+                cx1, cy1, cx2, cy2 = current_obj.get("box", [0, 0, 0, 0]) 
                 current_label = current_obj["label"] 
                 is_contained = False
+                
+                # Calculate the bounding box area of the current object
+                current_box_area = max(0, cx2 - cx1) * max(0, cy2 - cy1)
                 
                 for other_obj in detected_objects:
                     if current_obj == other_obj:
                         continue
                         
                     if current_label == other_obj["label"]:
-                        ox1, oy1, ox2, oy2 = other_obj.get("box", [0,0,0,0])
+                        ox1, oy1, ox2, oy2 = other_obj.get("box", [0, 0, 0, 0])
                         
-                        if cx1 >= ox1 and cy1 >= oy1 and cx2 <= ox2 and cy2 <= oy2:
-                            if other_obj["pixel_area"] > current_obj["pixel_area"]:
-                                is_contained = True
-                                break 
+                        # Only check if the other object is larger
+                        if other_obj.get("pixel_area", 0) > current_obj.get("pixel_area", 0):
+                            
+                            # 1. Find the coordinates of the overlapping intersection
+                            inter_x1 = max(cx1, ox1)
+                            inter_y1 = max(cy1, oy1)
+                            inter_x2 = min(cx2, ox2)
+                            inter_y2 = min(cy2, oy2)
+                            
+                            # 2. Calculate the width, height, and area of the overlap
+                            inter_w = max(0, inter_x2 - inter_x1)
+                            inter_h = max(0, inter_y2 - inter_y1)
+                            inter_area = inter_w * inter_h
+                            
+                            # 3. Calculate what percentage of the current box is overlapping
+                            if current_box_area > 0:
+                                overlap_ratio = inter_area / current_box_area
+                                
+                                # 4. If it exceeds your threshold, mark it for deletion
+                                if overlap_ratio >= CONTAINMENT_THRESHOLD:
+                                    is_contained = True
+                                    break 
                                 
                 if not is_contained:
                     filtered_objects.append(current_obj)
@@ -205,8 +229,8 @@ def handler(job):
             # Replace original lists with the cleaned versions
             detected_objects = filtered_objects
             final_kept_indices = filtered_indices
-            # =========================================================
-            
+            # =========================================================                    
+
             
             annotated_image_b64 = None
             if return_annotated_image and detected_objects:
