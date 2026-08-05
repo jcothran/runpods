@@ -173,7 +173,7 @@ def handler(job):
                 detected_objects.append(item_data)
                 final_kept_indices.append(orig_idx)
 
-            '''
+            
             # =========================================================
             # FILTER SAME CLASS BOXES WITHIN LARGER BOXES(e.g. ICE fields)
             # =========================================================
@@ -206,7 +206,7 @@ def handler(job):
             detected_objects = filtered_objects
             final_kept_indices = filtered_indices
             # =========================================================
-            '''
+            
             
             annotated_image_b64 = None
             if return_annotated_image and detected_objects:
