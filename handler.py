@@ -46,7 +46,7 @@ def handler(job):
     # Fetch and extract the hosted batch archive file if flag is enabled
     if remote_tar_url:
         try:
-            print(f"📥 Stream fetching batch bundle from server: {REMOTE_TAR_URL}")
+            print(f"📥 Stream fetching batch bundle from server: {remote_tar_url}")
             response = requests.get(remote_tar_url, timeout=30, verify=False)
             if response.status_code == 200:
                 with tarfile.open(fileobj=io.BytesIO(response.content), mode="r") as tar:
