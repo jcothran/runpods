@@ -173,6 +173,53 @@ def handler(job):
                 detected_objects.append(item_data)
                 final_kept_indices.append(orig_idx)
 
+            
+            # =========================================================
+            # FILTER SAME CLASS BOXES WITHIN LARGER BOXES(e.g. ICE fields)
+            # =========================================================
+            filtered_objects = []
+            filtered_indices = [] # Keeping mask indices in sync!
+
+            for list_idx, current_obj in enumerate(detected_objects):
+                # Safely get the box (fallback to 0s if it's missing for some reason)
+                cx1, cy1, cx2, cy2 = current_obj.get("box", [0,0,0,0]) 
+                current_label = current_obj["label"] 
+                is_contained = False
+                
+                for other_obj in detected_objects:
+                    if current_obj == other_obj:
+                        continue
+                        
+                    if current_label == other_obj["label"]:
+                        ox1, oy1, ox2, oy2 = other_obj.get("box", [0,0,0,0])
+                        
+                        if cx1 >= ox1 and cy1 >= oy1 and cx2 <= ox2 and cy2 <= oy2:
+                            if other_obj["pixel_area"] > current_obj["pixel_area"]:
+                                is_contained = True
+                                break 
+                                
+                if not is_contained:
+                    filtered_objects.append(current_obj)
+                    filtered_indices.append(final_kept_indices[list_idx])
+
+            # Replace original lists with the cleaned versions
+            detected_objects = filtered_objects
+            final_kept_indices = filtered_indices
+            # =========================================================
+
+            
+            annotated_image_b64 = None
+            if return_annotated_image and detected_objects:
+                np.random.seed(42)
+                colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
+                # ... (existing code drawing the masks and bounding boxes) ...
+
+            annotated_image_b64 = None
+            if return_annotated_image and detected_objects:
+                np.random.seed(42)
+                colors = np.random.randint(0, 255, size=(20, 3), dtype=np.uint8)
+                # ... (existing code drawing the masks and bounding boxes) ...
+            
             annotated_image_b64 = None
             if return_annotated_image and detected_objects:
                 np.random.seed(42)
